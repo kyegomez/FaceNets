@@ -1,3 +1,6 @@
+import os
+import gdown
+import zipfile
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -5,7 +8,33 @@ from torch.utils.data import DataLoader, Dataset
 import torchvision.transforms as transforms
 from torchvision.datasets import CelebA
 from timm.models.vision_transformer import vit_base_patch16_224
-import os
+
+# Constants
+ROOT_DIR = './data'
+ZIP_FILE = 'img_align_celeba.zip'
+EXTRACTED_DIR = os.path.join(ROOT_DIR, 'img_align_celeba')
+ATTR_FILE = os.path.join(ROOT_DIR, 'list_attr_celeba.txt')
+PARTITION_FILE = os.path.join(ROOT_DIR, 'list_eval_partition.txt')
+GOOGLE_DRIVE_ID = '0B7EVK8r0v71pZjFTYXZWM3FlRnM'
+
+# Download CelebA dataset from Google Drive
+def download_celeba():
+    os.makedirs(ROOT_DIR, exist_ok=True)
+    zip_path = os.path.join(ROOT_DIR, ZIP_FILE)
+    
+    if not os.path.exists(zip_path):
+        print(f"Downloading CelebA dataset to {zip_path}...")
+        gdown.download(id=GOOGLE_DRIVE_ID, output=zip_path, quiet=False)
+    else:
+        print(f"{zip_path} already exists, skipping download.")
+
+    # Extract the dataset
+    if not os.path.exists(EXTRACTED_DIR):
+        print(f"Extracting {zip_path}...")
+        with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+            zip_ref.extractall(ROOT_DIR)
+    else:
+        print(f"{EXTRACTED_DIR} already exists, skipping extraction.")
 
 # Dataset Preparation
 class CelebADataset(Dataset):
@@ -26,16 +55,6 @@ transform = transforms.Compose([
     transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
 ])
 
-# Paths
-root_dir = './data'
-
-# Datasets and Dataloaders
-train_dataset = CelebADataset(root=root_dir, split='train', transform=transform)
-val_dataset = CelebADataset(root=root_dir, split='valid', transform=transform)
-
-train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=4)
-val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False, num_workers=4)
-
 # Model Definition
 class ViTFaceRecognition(nn.Module):
     def __init__(self, num_classes=2):
@@ -48,14 +67,6 @@ class ViTFaceRecognition(nn.Module):
         x = self.vit(x)
         x = self.fc(x)
         return x
-
-# Initialize Model
-model = ViTFaceRecognition(num_classes=2)
-model = model.cuda() if torch.cuda.is_available() else model
-
-# Loss Function and Optimizer
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
 # Training Loop
 def train_model(model, train_loader, val_loader, criterion, optimizer, num_epochs=25):
@@ -97,34 +108,31 @@ def train_model(model, train_loader, val_loader, criterion, optimizer, num_epoch
     model.load_state_dict(best_model_wts)
     return model
 
-# Train the model
-trained_model = train_model(model, train_loader, val_loader, criterion, optimizer, num_epochs=25)
-
-# Save the model
-torch.save(trained_model.state_dict(), 'vit_face_recognition.pth')
-
-# Download and preprocess the CelebA dataset
 if __name__ == "__main__":
-    root_dir = './data'
-    os.makedirs(root_dir, exist_ok=True)
-    
-    # Download and process datasets
-    print("Downloading and processing CelebA dataset...")
+    # Download and preprocess the CelebA dataset
+    download_celeba()
+
+    # Paths
+    root_dir = ROOT_DIR
+
+    # Datasets and Dataloaders
     train_dataset = CelebADataset(root=root_dir, split='train', transform=transform)
     val_dataset = CelebADataset(root=root_dir, split='valid', transform=transform)
-    
+
     train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=4)
     val_loader = DataLoader(val_dataset, batch_size=32, shuffle=False, num_workers=4)
-    
-    # Initialize and train the model
+
+    # Initialize Model
     model = ViTFaceRecognition(num_classes=2)
     model = model.cuda() if torch.cuda.is_available() else model
-    
+
+    # Loss Function and Optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-4)
-    
+
+    # Train the model
     trained_model = train_model(model, train_loader, val_loader, criterion, optimizer, num_epochs=25)
-    
-    # Save the trained model
+
+    # Save the model
     torch.save(trained_model.state_dict(), 'vit_face_recognition.pth')
     print("Model training complete and saved as vit_face_recognition.pth")
