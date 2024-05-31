@@ -1,3 +1,5 @@
 torch
-zetascale
-swarms
+torchvision
+timm
+tqdm
+zeta
