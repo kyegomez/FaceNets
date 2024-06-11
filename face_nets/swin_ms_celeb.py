@@ -1,11 +1,12 @@
+import os
+
+import timm
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from PIL import Image
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
-from PIL import Image
-import timm
-import os
 
 
 class FaceDataset(Dataset):
@@ -69,7 +70,6 @@ model = model.to("cuda" if torch.cuda.is_available() else "cpu")
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=1e-4)
-
 
 num_epochs = 10
 device = "cuda" if torch.cuda.is_available() else "cpu"
